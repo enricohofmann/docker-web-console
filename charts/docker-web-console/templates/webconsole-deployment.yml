@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-webconsole
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: webconsole
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: webconsole
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: dind
+          securityContext:
+            privileged: true
+            readOnlyRootFilesystem: false
+          stdin: true
+          tty: true
+          image: "docker:19-dind"
+          imagePullPolicy: "Always"
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+          ports:
+            - containerPort: 2376
+          volumeMounts:
+            - mountPath: /var/lib/docker
+              name: dind-storage
+            - mountPath: /certs/ca
+              name: cert-storage-ca
+            - mountPath: /certs/client
+              name: cert-storage-client
+        - name: webconsole
+          image: enricohofmann/ttyd:latest
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          ports:
+            - containerPort: 7681
+              name: http
+              protocol: TCP
+          env:
+            - name: DOCKER_HOST
+              value: tcp://localhost:2376
+            - name: DOCKER_TLS_VERIFY
+              value: "1"
+            - name: DOCKER_TLS_CERTDIR
+              value: /certs
+            - name: DOCKER_CERT_PATH
+              value: /certs/client
+          volumeMounts:
+            - mountPath: /certs/client
+              name: cert-storage-client
+              readOnly: true
+      volumes:
+        - name: dind-storage
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-dind
+        - name: cert-storage-ca
+          emptyDir: {}
+        - name: cert-storage-client
+          emptyDir: {}

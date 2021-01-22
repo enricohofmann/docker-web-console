@@ -1,0 +1,4 @@
+domain:
+  fqdn: example.tld
+replicaCount: 1
+imagePullSecrets: []
